@@ -7,6 +7,7 @@ class ChannelMessage {
   final String text;
   final DateTime? createdAt;
   final String? status;
+  final List<dynamic> media;
 
   const ChannelMessage({
     this.id,
@@ -15,7 +16,15 @@ class ChannelMessage {
     this.avatarUrl,
     this.createdAt,
     this.status,
+    this.media = const [],
   });
+
+  static List<dynamic> mediaFrom(dynamic raw) {
+    if (raw is List) {
+      return raw.whereType<Map<dynamic, dynamic>>().toList();
+    }
+    return const [];
+  }
 
   factory ChannelMessage.fromJson(Map<String, dynamic> json) {
     String? nonEmpty(Object? value) {
@@ -45,6 +54,7 @@ class ChannelMessage {
         json['created_at']?.toString() ?? '',
       )?.toLocal(),
       status: json['status']?.toString(),
+      media: mediaFrom(json['media'] ?? json['files'] ?? json['attachments']),
     );
   }
 

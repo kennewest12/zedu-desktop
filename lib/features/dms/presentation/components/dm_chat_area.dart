@@ -1109,11 +1109,17 @@ class _MessageBubble extends ConsumerWidget {
   }
 }
 
-class _AttachmentBubbleList extends StatelessWidget {
+typedef _AttachmentBubbleList = MessageAttachmentList;
+
+class MessageAttachmentList extends StatelessWidget {
   final List<dynamic> media;
   final bool isMe;
 
-  const _AttachmentBubbleList({required this.media, required this.isMe});
+  const MessageAttachmentList({
+    super.key,
+    required this.media,
+    this.isMe = false,
+  });
 
   void _launchUrl(String url) async {
     final uri = Uri.tryParse(url);
@@ -1189,15 +1195,34 @@ class _AttachmentBubbleList extends StatelessWidget {
       runSpacing: 8,
       alignment: isMe ? WrapAlignment.end : WrapAlignment.start,
       children: media.map((item) {
-        final String fileName = (item['file_name'] ?? 'Attachment').toString();
-        final String fileLink = (item['file_link'] ?? '').toString();
+        if (item is! Map) return const SizedBox.shrink();
+        final map = item is Map<String, dynamic>
+            ? item
+            : Map<String, dynamic>.from(item);
+        final String fileName =
+            (map['file_name'] ?? map['name'] ?? map['title'] ?? 'Attachment')
+                .toString();
+        final String fileLink =
+            (map['file_link'] ??
+                    map['url'] ??
+                    map['file_url'] ??
+                    map['link'] ??
+                    '')
+                .toString();
+        String fileType = (map['file_type'] ?? map['type'] ?? '')
+            .toString()
+            .toLowerCase();
+        if (fileType.isEmpty && fileName.contains('.')) {
+          fileType = fileName.split('.').last.toLowerCase();
+        }
         final isImage = [
           'png',
           'jpg',
           'jpeg',
           'gif',
           'webp',
-        ].contains((item['file_type'] ?? '').toString().toLowerCase());
+          'bmp',
+        ].contains(fileType);
 
         if (isImage && fileLink.isNotEmpty) {
           final isNetwork = fileLink.startsWith('http');

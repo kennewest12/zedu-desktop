@@ -181,6 +181,107 @@ void main() {
     },
   );
 
+  group('attachments rendering (#2681)', () {
+    testWidgets('renders file attachment chip in channel message', (
+      tester,
+    ) async {
+      await pumpList(
+        tester,
+        const Success([
+          ChannelMessage(
+            senderName: 'Ada',
+            text: 'Here is the report',
+            media: [
+              {
+                'file_name': 'quarterly_report.pdf',
+                'file_link': 'https://cdn.zedu.chat/quarterly_report.pdf',
+                'file_type': 'pdf',
+              },
+            ],
+          ),
+        ]),
+      );
+
+      expect(find.text('Here is the report'), findsOneWidget);
+      expect(find.text('quarterly_report.pdf'), findsOneWidget);
+      expect(find.byType(MessageAttachmentList), findsOneWidget);
+    });
+
+    testWidgets(
+      'file-only channel message displays attachment without empty text line',
+      (tester) async {
+        await pumpList(
+          tester,
+          const Success([
+            ChannelMessage(
+              senderName: 'Ada',
+              text: '',
+              media: [
+                {
+                  'file_name': 'document.docx',
+                  'file_link': 'https://cdn.zedu.chat/document.docx',
+                  'file_type': 'docx',
+                },
+              ],
+            ),
+          ]),
+        );
+
+        expect(find.text('document.docx'), findsOneWidget);
+        expect(find.byType(SelectableText), findsNothing);
+      },
+    );
+
+    testWidgets('renders image preview for image attachment', (tester) async {
+      await pumpList(
+        tester,
+        const Success([
+          ChannelMessage(
+            senderName: 'Ada',
+            text: 'Look at this photo',
+            media: [
+              {
+                'file_name': 'photo.png',
+                'file_link': 'https://cdn.zedu.chat/photo.png',
+                'file_type': 'png',
+              },
+            ],
+          ),
+        ]),
+      );
+
+      expect(find.text('Look at this photo'), findsOneWidget);
+      expect(find.byType(Image), findsOneWidget);
+    });
+
+    testWidgets('optimistic pending channel message carries attachments', (
+      tester,
+    ) async {
+      fakeChatHistory.messages = [
+        {
+          'id': 'temp-att-1',
+          'content': 'Sending attachment',
+          'channel_id': 'ch-1',
+          'status': 'sending',
+          'created_at': DateTime.now().toIso8601String(),
+          'media': [
+            {
+              'file_name': 'pending_upload.pdf',
+              'file_link': 'https://cdn.zedu.chat/pending_upload.pdf',
+              'file_type': 'pdf',
+            },
+          ],
+        },
+      ];
+
+      await pumpList(tester, const Success(<ChannelMessage>[]));
+
+      expect(find.text('Sending attachment'), findsOneWidget);
+      expect(find.text('pending_upload.pdf'), findsOneWidget);
+      expect(find.text('Sending...'), findsOneWidget);
+    });
+  });
+
   group('unread messages', () {
     // Newest first, as the server sends them: 'msg N' is the newest.
     Success<List<ChannelMessage>> messages(int n) => Success([

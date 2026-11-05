@@ -28,6 +28,66 @@ void main() {
     expect(message.senderName, 'gold_salam');
     expect(message.avatarUrl, 'https://cdn.zedu.chat/default.png');
     expect(message.text, 'Hi & welcome\nLine two\na\nb');
+    expect(message.media, isEmpty);
+  });
+
+  group('ChannelMessage.fromJson parses media attachments (#2681)', () {
+    test('extracts media list with name, link and type', () {
+      final message = ChannelMessage.fromJson({
+        'message': 'Check this file',
+        'media': [
+          {
+            'file_name': 'photo.png',
+            'file_link': 'https://cdn.zedu.chat/photo.png',
+            'file_type': 'png',
+          },
+        ],
+      });
+
+      expect(message.media.length, 1);
+      final item = message.media.first as Map;
+      expect(item['file_name'], 'photo.png');
+      expect(item['file_link'], 'https://cdn.zedu.chat/photo.png');
+      expect(item['file_type'], 'png');
+    });
+
+    test('falls back to files or attachments and skips non-map items', () {
+      final message = ChannelMessage.fromJson({
+        'message': 'Fallback test',
+        'files': [
+          'invalid_string',
+          42,
+          {
+            'name': 'document.pdf',
+            'url': 'https://cdn.zedu.chat/doc.pdf',
+            'type': 'pdf',
+          },
+        ],
+      });
+
+      expect(message.media.length, 1);
+      final item = message.media.first as Map;
+      expect(item['name'], 'document.pdf');
+    });
+
+    test(
+      'defaults to empty list when media is missing, null, or malformed',
+      () {
+        final msg1 = ChannelMessage.fromJson({'message': 'plain text'});
+        final msg2 = ChannelMessage.fromJson({
+          'message': 'plain text',
+          'media': null,
+        });
+        final msg3 = ChannelMessage.fromJson({
+          'message': 'plain text',
+          'media': 'not-a-list',
+        });
+
+        expect(msg1.media, isEmpty);
+        expect(msg2.media, isEmpty);
+        expect(msg3.media, isEmpty);
+      },
+    );
   });
 
   group('ChannelMessage.fromJson decodes HTML entities', () {

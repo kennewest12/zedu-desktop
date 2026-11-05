@@ -66,6 +66,7 @@ class _ChannelMessageListState extends ConsumerState<ChannelMessageList> {
               m['created_at']?.toString() ?? '',
             )?.toLocal(),
             status: m['status']?.toString(),
+            media: ChannelMessage.mediaFrom(m['media'] ?? m['files']),
           ),
         )
         .toList();
@@ -283,18 +284,23 @@ class ChannelMessageTile extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 4),
-                ReportMessageMenu(
-                  senderName: message.senderName,
-                  messageText: message.text,
-                  child: MessageLinkScope(
-                    builder: (context, links) => SelectableText.rich(
-                      links.span(
-                        message.text,
-                        TextStyle(fontSize: 15, color: colors.textPrimary),
+                if (message.text.isNotEmpty || message.media.isEmpty)
+                  ReportMessageMenu(
+                    senderName: message.senderName,
+                    messageText: message.text,
+                    child: MessageLinkScope(
+                      builder: (context, links) => SelectableText.rich(
+                        links.span(
+                          message.text,
+                          TextStyle(fontSize: 15, color: colors.textPrimary),
+                        ),
                       ),
                     ),
                   ),
-                ),
+                if (message.media.isNotEmpty) ...[
+                  if (message.text.isNotEmpty) const SizedBox(height: 8),
+                  MessageAttachmentList(media: message.media, isMe: false),
+                ],
                 if (status != null)
                   Padding(
                     padding: const EdgeInsets.only(top: 4),
