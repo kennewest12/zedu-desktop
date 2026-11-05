@@ -10,6 +10,8 @@ class App extends ConsumerWidget {
       debugShowCheckedModeBanner: false,
       title: kIsWeb ? 'Zedu | Team Messaging & Collaboration' : 'Zedu',
       theme: AppTheme.light,
+      darkTheme: AppTheme.dark,
+      themeMode: ThemeMode.system,
       routerConfig: AppRouter.router,
       builder: (context, child) => DesktopWindowTitleListener(
         child: CreditsPaymentDeepLinkListener(

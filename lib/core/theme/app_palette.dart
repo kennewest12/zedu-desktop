@@ -65,4 +65,29 @@ class AppPalette {
     presenceActive: Color(0xFF22C55E),
     presenceAway: Color(0x661E1E1E),
   );
+
+  /// Dark surfaces: near-black violet so the purple primary still reads as the
+  /// accent. Every text token is chosen against the surfaces it is drawn on
+  /// (background, sidebar, card, primaryBg, successBg, errorBg) and guarded by
+  /// the WCAG AA ratios asserted in app_palette_contrast_test.dart.
+  static const dark = AppPalette(
+    brightness: Brightness.dark,
+    primary: Color(0xFF8B7CFF),
+    sidebar: Color(0xFF1A1926),
+    accent: Color(0xFF5CCBBA),
+    onPrimary: Color(0xFF12101C),
+    background: Color(0xFF121118),
+    textPrimary: Color(0xFFF5F4FB),
+    textSecondary: Color(0xFFCFCCE0),
+    textHint: Color(0xFF9E9AB2),
+    borderOutline: Color(0xFF302D40),
+    divider: Color(0xFF272433),
+    success: Color(0xFF5EE39B),
+    successBg: Color(0xFF10301F),
+    error: Color(0xFFFF8A8A),
+    errorBg: Color(0xFF3B1616),
+    primaryBg: Color(0xFF221D3A),
+    presenceActive: Color(0xFF5EE39B),
+    presenceAway: Color(0x66CFCCE0),
+  );
 }
