@@ -16,11 +16,13 @@ class ChannelMessageList extends ConsumerStatefulWidget {
     required this.channelId,
     required this.empty,
     this.unreadCount = 0,
+    this.onOpenThread,
   });
 
   final String channelId;
   final Widget empty;
   final int unreadCount;
+  final void Function(ChannelMessage message)? onOpenThread;
 
   /// From this many unread messages on, the jump button is offered.
   static const manyUnread = 10;
@@ -34,6 +36,15 @@ class _ChannelMessageListState extends ConsumerState<ChannelMessageList> {
   final _firstUnreadKey = GlobalKey();
   final _scroll = ScrollController();
   bool _jumped = false;
+  ChannelMessage? _activeThread;
+
+  void _handleOpenThread(ChannelMessage message) {
+    if (widget.onOpenThread != null) {
+      widget.onOpenThread!(message);
+    } else {
+      setState(() => _activeThread = message);
+    }
+  }
 
   @override
   void dispose() {
@@ -87,7 +98,7 @@ class _ChannelMessageListState extends ConsumerState<ChannelMessageList> {
               : _buildList(context, pendingMessages, 0),
           data: (serverMessages) {
             final allMessages = [...pendingMessages, ...serverMessages];
-            return allMessages.isEmpty
+            final listWidget = allMessages.isEmpty
                 ? widget.empty
                 : _buildList(
                     context,
@@ -97,6 +108,26 @@ class _ChannelMessageListState extends ConsumerState<ChannelMessageList> {
                     pendingMessages.length,
                     serverCount: serverMessages.length,
                   );
+
+            if (_activeThread != null) {
+              return Row(
+                children: [
+                  Expanded(child: listWidget),
+                  ThreadPanel(
+                    parentMessage: _activeThread!.text,
+                    parentAuthor: _activeThread!.senderName,
+                    parentTimestamp: _activeThread!.createdAt != null
+                        ? TimeOfDay.fromDateTime(
+                            _activeThread!.createdAt!,
+                          ).format(context)
+                        : '',
+                    onClose: () => setState(() => _activeThread = null),
+                  ),
+                ],
+              );
+            }
+
+            return listWidget;
           },
         );
   }
@@ -164,6 +195,7 @@ class _ChannelMessageListState extends ConsumerState<ChannelMessageList> {
                     .read(chatHistoryProvider(channelId))
                     .retryMessage(message.id!)
               : null,
+          onReplyInThread: _handleOpenThread,
         );
         if (index != firstUnread) return tile;
         return Column(
@@ -229,111 +261,248 @@ class _UnreadDivider extends StatelessWidget {
   }
 }
 
-class ChannelMessageTile extends StatelessWidget {
-  const ChannelMessageTile({super.key, required this.message, this.onRetry});
+class ChannelMessageTile extends StatefulWidget {
+  const ChannelMessageTile({
+    super.key,
+    required this.message,
+    this.onRetry,
+    this.onReplyInThread,
+  });
 
   final ChannelMessage message;
   final VoidCallback? onRetry;
+  final void Function(ChannelMessage message)? onReplyInThread;
+
+  @override
+  State<ChannelMessageTile> createState() => _ChannelMessageTileState();
+}
+
+class _ChannelMessageTileState extends State<ChannelMessageTile> {
+  bool _hovered = false;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final message = widget.message;
     final avatarUrl = message.avatarUrl;
     final time = message.createdAt;
     final initial = avatarInitial(message.senderName);
     final status = message.status;
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          CircleAvatar(
-            radius: 16,
-            backgroundColor: colors.primary,
-            foregroundImage: avatarUrl != null ? NetworkImage(avatarUrl) : null,
-            onForegroundImageError: avatarUrl != null
-                ? ignoreAvatarError
-                : null,
-            child: Text(initial, style: TextStyle(color: colors.onPrimary)),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text.rich(
-                  TextSpan(
-                    text: message.senderName,
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: colors.textPrimary,
-                    ),
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 16),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            CircleAvatar(
+              radius: 16,
+              backgroundColor: colors.primary,
+              foregroundImage: avatarUrl != null
+                  ? NetworkImage(avatarUrl)
+                  : null,
+              onForegroundImageError: avatarUrl != null
+                  ? ignoreAvatarError
+                  : null,
+              child: Text(initial, style: TextStyle(color: colors.onPrimary)),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      if (time != null)
-                        TextSpan(
-                          text:
-                              '  ${TimeOfDay.fromDateTime(time).format(context)}',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.normal,
-                            color: colors.textSecondary,
+                      Expanded(
+                        child: Text.rich(
+                          TextSpan(
+                            text: message.senderName,
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: colors.textPrimary,
+                            ),
+                            children: [
+                              if (time != null)
+                                TextSpan(
+                                  text:
+                                      '  ${TimeOfDay.fromDateTime(time).format(context)}',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.normal,
+                                    color: colors.textSecondary,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      if (widget.onReplyInThread != null)
+                        AnimatedOpacity(
+                          opacity: _hovered ? 1.0 : 0.0,
+                          duration: const Duration(milliseconds: 150),
+                          child: InkWell(
+                            key: ValueKey(
+                              'reply-in-thread-${message.id ?? "btn"}',
+                            ),
+                            onTap: () => widget.onReplyInThread?.call(message),
+                            borderRadius: BorderRadius.circular(4),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.reply,
+                                    size: 14,
+                                    color: colors.textSecondary,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'Reply in thread',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: colors.textSecondary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
                         ),
                     ],
                   ),
-                ),
-                const SizedBox(height: 4),
-                ReportMessageMenu(
-                  senderName: message.senderName,
-                  messageText: message.text,
-                  child: MessageLinkScope(
-                    builder: (context, links) => SelectableText.rich(
-                      links.span(
-                        message.text,
-                        TextStyle(fontSize: 15, color: colors.textPrimary),
+                  const SizedBox(height: 4),
+                  ReportMessageMenu(
+                    senderName: message.senderName,
+                    messageText: message.text,
+                    child: MessageLinkScope(
+                      builder: (context, links) => SelectableText.rich(
+                        links.span(
+                          message.text,
+                          TextStyle(fontSize: 15, color: colors.textPrimary),
+                        ),
                       ),
                     ),
                   ),
-                ),
-                if (status != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: status == 'failed'
-                        ? GestureDetector(
-                            onTap: onRetry,
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
+                  if (message.replyCount > 0)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: InkWell(
+                        key: ValueKey(
+                          'thread-reply-indicator-${message.id ?? "msg"}',
+                        ),
+                        onTap: () => widget.onReplyInThread?.call(message),
+                        borderRadius: BorderRadius.circular(6),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: colors.primary.withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(
+                              color: colors.primary.withValues(alpha: 0.2),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (message.replyAvatars.isNotEmpty) ...[
+                                for (final avatar in message.replyAvatars.take(
+                                  3,
+                                ))
+                                  Padding(
+                                    padding: const EdgeInsets.only(right: 4),
+                                    child: CircleAvatar(
+                                      radius: 9,
+                                      backgroundColor: colors.primary,
+                                      foregroundImage: NetworkImage(avatar),
+                                      onForegroundImageError: ignoreAvatarError,
+                                    ),
+                                  ),
+                              ] else ...[
                                 Icon(
-                                  Icons.error_outline,
-                                  size: 13,
-                                  color: colors.error,
+                                  Icons.forum_outlined,
+                                  size: 14,
+                                  color: colors.primary,
                                 ),
                                 const SizedBox(width: 4),
+                              ],
+                              Text(
+                                '${message.replyCount} ${message.replyCount == 1 ? "reply" : "replies"}',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: colors.primary,
+                                ),
+                              ),
+                              if (message.lastReplyAt != null) ...[
+                                const SizedBox(width: 6),
                                 Text(
-                                  'Failed – Tap to retry',
+                                  'Last reply ${TimeOfDay.fromDateTime(message.lastReplyAt!).format(context)}',
                                   style: TextStyle(
-                                    color: colors.error,
                                     fontSize: 11,
-                                    fontWeight: FontWeight.w500,
+                                    color: colors.textSecondary,
                                   ),
                                 ),
                               ],
-                            ),
-                          )
-                        : Text(
-                            status == 'sending' ? 'Sending...' : '',
-                            style: TextStyle(
-                              color: colors.textHint,
-                              fontSize: 11,
-                            ),
+                              const SizedBox(width: 4),
+                              Icon(
+                                Icons.chevron_right,
+                                size: 14,
+                                color: colors.primary,
+                              ),
+                            ],
                           ),
-                  ),
-              ],
+                        ),
+                      ),
+                    ),
+                  if (status != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: status == 'failed'
+                          ? GestureDetector(
+                              onTap: widget.onRetry,
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.error_outline,
+                                    size: 13,
+                                    color: colors.error,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'Failed – Tap to retry',
+                                    style: TextStyle(
+                                      color: colors.error,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
+                          : Text(
+                              status == 'sending' ? 'Sending...' : '',
+                              style: TextStyle(
+                                color: colors.textHint,
+                                fontSize: 11,
+                              ),
+                            ),
+                    ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

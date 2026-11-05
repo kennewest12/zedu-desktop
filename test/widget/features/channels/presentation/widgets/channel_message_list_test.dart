@@ -181,6 +181,105 @@ void main() {
     },
   );
 
+  group('thread replies (#2682)', () {
+    testWidgets('renders reply count indicator badge when replyCount > 0', (
+      tester,
+    ) async {
+      await pumpList(
+        tester,
+        Success([
+          ChannelMessage(
+            id: 'm-thread',
+            senderName: 'Ada',
+            text: 'Thread starting post',
+            replyCount: 4,
+            replyAvatars: const ['https://cdn.zedu.chat/avatar1.png'],
+            lastReplyAt: DateTime(2026, 11, 5, 14, 30),
+          ),
+        ]),
+      );
+
+      expect(find.text('4 replies'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('thread-reply-indicator-m-thread')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets(
+      'does not show reply count indicator badge when replyCount is 0',
+      (tester) async {
+        await pumpList(
+          tester,
+          const Success([
+            ChannelMessage(
+              id: 'm-no-thread',
+              senderName: 'Ada',
+              text: 'Message without thread',
+              replyCount: 0,
+            ),
+          ]),
+        );
+
+        expect(find.textContaining('replies'), findsNothing);
+        expect(
+          find.byKey(const ValueKey('thread-reply-indicator-m-no-thread')),
+          findsNothing,
+        );
+      },
+    );
+
+    testWidgets('Reply in thread action triggers thread opening', (
+      tester,
+    ) async {
+      await pumpList(
+        tester,
+        const Success([
+          ChannelMessage(
+            id: 'm-reply',
+            senderName: 'Ada',
+            text: 'Please reply here',
+            replyCount: 0,
+          ),
+        ]),
+      );
+
+      expect(find.text('Reply in thread'), findsOneWidget);
+      await tester.tap(find.text('Reply in thread'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ThreadPanel), findsOneWidget);
+      expect(find.text('Thread'), findsOneWidget);
+    });
+
+    testWidgets('tapping reply count indicator badge opens ThreadPanel', (
+      tester,
+    ) async {
+      await pumpList(
+        tester,
+        const Success([
+          ChannelMessage(
+            id: 'm-badge',
+            senderName: 'Grace',
+            text: 'Parent topic message',
+            replyCount: 2,
+          ),
+        ]),
+      );
+
+      await tester.tap(find.text('2 replies'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ThreadPanel), findsOneWidget);
+      expect(find.byTooltip('Close thread'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Close thread'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ThreadPanel), findsNothing);
+    });
+  });
+
   group('unread messages', () {
     // Newest first, as the server sends them: 'msg N' is the newest.
     Success<List<ChannelMessage>> messages(int n) => Success([

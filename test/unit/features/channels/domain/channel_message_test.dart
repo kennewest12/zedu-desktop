@@ -28,6 +28,64 @@ void main() {
     expect(message.senderName, 'gold_salam');
     expect(message.avatarUrl, 'https://cdn.zedu.chat/default.png');
     expect(message.text, 'Hi & welcome\nLine two\na\nb');
+    expect(message.replyCount, 0);
+  });
+
+  group('ChannelMessage.fromJson parses thread replies (#2682)', () {
+    test('extracts threadId, replyCount, replyAvatars and lastReplyAt', () {
+      final message = ChannelMessage.fromJson({
+        'id': 'msg-1',
+        'thread_id': 'th-100',
+        'full_name': 'Ada Lovelace',
+        'message': 'Thread parent message',
+        'reply_count': 5,
+        'reply_avatars': [
+          'https://cdn.zedu.chat/user1.png',
+          'https://cdn.zedu.chat/user2.png',
+        ],
+        'last_reply': '2026-11-05T12:00:00Z',
+      });
+
+      expect(message.id, 'msg-1');
+      expect(message.threadId, 'th-100');
+      expect(message.replyCount, 5);
+      expect(message.replyAvatars, [
+        'https://cdn.zedu.chat/user1.png',
+        'https://cdn.zedu.chat/user2.png',
+      ]);
+      expect(
+        message.lastReplyAt,
+        DateTime.utc(2026, 11, 5, 12, 0, 0).toLocal(),
+      );
+    });
+
+    test(
+      'supports message_count or messages list as fallback for replyCount',
+      () {
+        final msg1 = ChannelMessage.fromJson({
+          'id': 'msg-2',
+          'message_count': '3',
+        });
+        expect(msg1.replyCount, 3);
+        expect(msg1.threadId, 'msg-2');
+
+        final msg2 = ChannelMessage.fromJson({
+          'id': 'msg-3',
+          'messages': [
+            {'id': 'r1'},
+            {'id': 'r2'},
+          ],
+        });
+        expect(msg2.replyCount, 2);
+      },
+    );
+
+    test('defaults thread fields when omitted or null', () {
+      final msg = ChannelMessage.fromJson({'message': 'plain'});
+      expect(msg.replyCount, 0);
+      expect(msg.replyAvatars, isEmpty);
+      expect(msg.lastReplyAt, isNull);
+    });
   });
 
   group('ChannelMessage.fromJson decodes HTML entities', () {
