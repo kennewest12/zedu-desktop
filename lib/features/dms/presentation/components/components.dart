@@ -9,3 +9,4 @@ export 'dm_profile_card.dart';
 export 'image_attachment_viewer.dart';
 export 'own_space_intro.dart';
 export 'conversation_files_dialog.dart';
+export 'conversation_pinned_messages_dialog.dart';

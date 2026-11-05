@@ -97,6 +97,8 @@ class _DmChatAreaState extends ConsumerState<DmChatArea> {
         ref
             .read(dmConversationActionsProvider.notifier)
             .togglePinned(conversation.channelId);
+      case 'pinned_messages':
+        await _showPinnedMessages();
       case 'search_in_conversation':
         await _showConversationSearch();
       case 'view_files':
@@ -186,6 +188,19 @@ class _DmChatAreaState extends ConsumerState<DmChatArea> {
       builder: (context) => _ConversationSearchDialog(
         displayName: widget.conversation.displayName,
         messages: messages,
+      ),
+    );
+  }
+
+  Future<void> _showPinnedMessages() async {
+    final history = ref.read(
+      chatHistoryProvider(widget.conversation.channelId),
+    );
+    await showDialog<void>(
+      context: context,
+      builder: (context) => ConversationPinnedMessagesDialog(
+        title: '${widget.conversation.displayName} pinned messages',
+        history: history,
       ),
     );
   }
