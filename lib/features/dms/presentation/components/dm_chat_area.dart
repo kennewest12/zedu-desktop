@@ -111,6 +111,8 @@ class _DmChatAreaState extends ConsumerState<DmChatArea> {
         ref
             .read(dmConversationActionsProvider.notifier)
             .togglePinned(conversation.channelId);
+      case 'pinned_messages':
+        await _showPinnedMessages();
       case 'search_in_conversation':
         await _showConversationSearch();
       case 'view_files':
@@ -209,6 +211,19 @@ class _DmChatAreaState extends ConsumerState<DmChatArea> {
       builder: (context) => ConversationFilesDialog(
         title: '${widget.conversation.displayName} files',
         history: history,
+      ),
+    );
+  }
+
+  Future<void> _showPinnedMessages() async {
+    final history = ref.read(
+      chatHistoryProvider(widget.conversation.channelId),
+    );
+    await showDialog<void>(
+      context: context,
+      builder: (context) => _PinnedMessagesDialog(
+        displayName: widget.conversation.displayName,
+        messages: history.messages,
       ),
     );
   }
@@ -628,6 +643,145 @@ class _ConversationSearchDialogState extends State<_ConversationSearchDialog> {
             ),
           ],
         ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Close'),
+        ),
+      ],
+    );
+  }
+}
+
+class _PinnedMessagesDialog extends StatelessWidget {
+  final String displayName;
+  final List<Map<String, dynamic>> messages;
+
+  const _PinnedMessagesDialog({
+    required this.displayName,
+    required this.messages,
+  });
+
+  static String _plainText(Object? content) => (content?.toString() ?? '')
+      .replaceAll(RegExp(r'</?(p|div|li|ul|ol|br|blockquote|pre)\b[^>]*>'), ' ')
+      .replaceAll(RegExp(r'<[^>]*>'), '')
+      .replaceAll('&nbsp;', ' ')
+      .replaceAll('&lt;', '<')
+      .replaceAll('&gt;', '>')
+      .replaceAll('&quot;', '"')
+      .replaceAll('&#39;', "'")
+      .replaceAll('&amp;', '&')
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim();
+
+  static bool _isPinned(Map<String, dynamic> message) {
+    return message['is_pinned'] == true ||
+        message['pinned'] == true ||
+        message['isPinned'] == true;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final pinned = messages.where(_isPinned).toList();
+
+    return AlertDialog(
+      title: Text('Pinned messages in $displayName'),
+      content: SizedBox(
+        width: 420,
+        height: 360,
+        child: pinned.isEmpty
+            ? Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.push_pin_outlined,
+                      size: 48,
+                      color: colors.textHint,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'No pinned messages',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: colors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Pin important messages to easily find them later.',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: colors.textSecondary,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              )
+            : ListView.separated(
+                itemCount: pinned.length,
+                separatorBuilder: (context, index) => Divider(
+                  height: 1,
+                  color: colors.divider,
+                ),
+                itemBuilder: (context, index) {
+                  final message = pinned[index];
+                  final text = _plainText(message['content']);
+                  final sender = message['sender_name']?.toString() ??
+                      message['sender']?.toString() ??
+                      displayName;
+                  final createdAtStr = message['created_at']?.toString();
+                  final createdAt = createdAtStr != null
+                      ? DateTime.tryParse(createdAtStr)?.toLocal()
+                      : null;
+
+                  return ListTile(
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    leading: const Icon(Icons.push_pin, size: 18),
+                    title: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            sender,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (createdAt != null)
+                          Text(
+                            TimeOfDay.fromDateTime(createdAt).format(context),
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: colors.textSecondary,
+                            ),
+                          ),
+                      ],
+                    ),
+                    subtitle: Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        text.isEmpty ? '(Attachment)' : text,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: colors.textPrimary,
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
       ),
       actions: [
         TextButton(
