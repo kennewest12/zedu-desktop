@@ -30,19 +30,20 @@ class DmProfileCard extends StatelessWidget {
           CircleAvatar(
             radius: 39,
             backgroundColor: colors.primary,
-            backgroundImage: conversation.effectiveAvatarUrl != null
+            foregroundImage: conversation.effectiveAvatarUrl != null
                 ? NetworkImage(conversation.effectiveAvatarUrl!)
                 : null,
-            child: conversation.effectiveAvatarUrl == null
-                ? Text(
-                    avatarInitial(name),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 28,
-                    ),
-                  )
+            onForegroundImageError: conversation.effectiveAvatarUrl != null
+                ? ignoreAvatarError
                 : null,
+            child: Text(
+              avatarInitial(name),
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 28,
+              ),
+            ),
           ),
           const SizedBox(height: 12),
           Text(

@@ -11,3 +11,8 @@ String avatarInitial(String? name, {String fallback = '?'}) {
   if (trimmed.isEmpty) return fallback;
   return trimmed.characters.first.toUpperCase();
 }
+
+/// For `CircleAvatar.onForegroundImageError`. A photo that fails to load
+/// (expired link, 404, offline) is not painted, so the initial in the
+/// avatar's `child` shows instead of an empty circle.
+void ignoreAvatarError(Object error, StackTrace? stackTrace) {}

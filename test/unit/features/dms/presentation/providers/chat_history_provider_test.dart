@@ -729,10 +729,13 @@ void _retryTests() {
       sub.close();
       await pumpEventQueue();
 
+      // Disposed: a ChangeNotifier refuses new listeners once disposed.
       expect(
-        () => autoNotifier.notifyListeners(),
+        () => autoNotifier.addListener(() {}),
         throwsA(isA<FlutterError>()),
       );
+      // Work still finishing after dispose must not crash (#2633).
+      expect(() => autoNotifier.notifyListeners(), returnsNormally);
     });
   });
 }

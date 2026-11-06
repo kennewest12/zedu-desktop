@@ -251,10 +251,11 @@ class ChannelMessageTile extends StatelessWidget {
           CircleAvatar(
             radius: 16,
             backgroundColor: colors.primary,
-            backgroundImage: avatarUrl != null ? NetworkImage(avatarUrl) : null,
-            child: avatarUrl == null
-                ? Text(initial, style: TextStyle(color: colors.onPrimary))
+            foregroundImage: avatarUrl != null ? NetworkImage(avatarUrl) : null,
+            onForegroundImageError: avatarUrl != null
+                ? ignoreAvatarError
                 : null,
+            child: Text(initial, style: TextStyle(color: colors.onPrimary)),
           ),
           const SizedBox(width: 12),
           Expanded(

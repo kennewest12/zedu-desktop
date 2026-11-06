@@ -90,6 +90,55 @@ void main() {
     expect(saved?.country, 'Nigeria');
   });
 
+  testWidgets(
+    'the arrow keys visibly move the highlighted country, and Enter picks it (Ziki #2781)',
+    (tester) async {
+      ProfileAccount? saved;
+      await openDialog(tester, (account) async {
+        saved = account;
+        return null;
+      });
+
+      final countryField = find.byType(TextFormField).last;
+      await tester.tap(countryField);
+      await tester.enterText(countryField, 'Nige');
+      await tester.pumpAndSettle();
+
+      Color? fillOf(String country) => tester
+          .widget<Material>(
+            find
+                .ancestor(
+                  of: find.text(country).last,
+                  matching: find.byType(Material),
+                )
+                .first,
+          )
+          .color;
+      void expectSelected(String country, bool selected) => expect(
+        tester.getSemantics(find.text(country).last),
+        isSemantics(isSelected: selected),
+      );
+
+      final highlight = AppPalette.light.primaryBg;
+      expect(fillOf('Niger'), highlight);
+      expectSelected('Niger', true);
+      expect(fillOf('Nigeria'), isNot(highlight));
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pumpAndSettle();
+      expect(fillOf('Nigeria'), highlight);
+      expectSelected('Nigeria', true);
+      expect(fillOf('Niger'), isNot(highlight));
+      expectSelected('Niger', false);
+
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Save changes'));
+      await tester.pumpAndSettle();
+      expect(saved?.country, 'Nigeria');
+    },
+  );
+
   testWidgets('accepts and normalizes a typed country without selecting it', (
     tester,
   ) async {

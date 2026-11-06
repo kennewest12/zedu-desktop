@@ -108,13 +108,30 @@ class _AppToastWidgetState extends State<_AppToastWidget>
       end: Offset.zero,
     ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
 
-    _controller.forward();
     Future.delayed(const Duration(seconds: 4), _dismiss);
+  }
+
+  bool _shown = false;
+
+  bool get _reduceMotion =>
+      MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_shown) return;
+    _shown = true;
+    // With Reduce motion on, the toast appears and leaves without sliding.
+    if (_reduceMotion) {
+      _controller.value = 1;
+    } else {
+      _controller.forward();
+    }
   }
 
   Future<void> _dismiss() async {
     if (!mounted) return;
-    await _controller.reverse();
+    if (!_reduceMotion) await _controller.reverse();
     widget.onDismiss();
   }
 

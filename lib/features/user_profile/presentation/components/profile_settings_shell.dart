@@ -189,6 +189,13 @@ class _SettingsNavigation extends StatelessWidget {
                         onSectionSelected(UserProfileSection.notifications),
                   ),
                   _NavigationTile(
+                    icon: Icons.keyboard_outlined,
+                    label: 'Keyboard shortcuts',
+                    selected: selectedSection == UserProfileSection.shortcuts,
+                    onTap: () =>
+                        onSectionSelected(UserProfileSection.shortcuts),
+                  ),
+                  _NavigationTile(
                     icon: Icons.lock_outline,
                     label: 'Security',
                     selected: selectedSection == UserProfileSection.security,

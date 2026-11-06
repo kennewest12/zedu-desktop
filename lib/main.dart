@@ -1,5 +1,6 @@
 import 'package:zedu/core/core.dart';
 import 'package:zedu/app/app.dart';
+import 'package:zedu/core/window/global_hotkey.dart';
 import 'package:zedu/core/window/window_startup.dart';
 
 Future<void> main() async {
@@ -13,6 +14,7 @@ Future<void> main() async {
     storage: locator<SecureStorageService>(),
   ).restore();
   showWindowWhenReady(windowManager);
+  await startGlobalHotkey();
 
   runApp(const ProviderScope(child: App()));
 }

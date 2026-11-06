@@ -69,20 +69,22 @@ class MentionSuggestionList extends StatelessWidget {
                         CircleAvatar(
                           radius: 14,
                           backgroundColor: const Color(0xFF6458F5),
-                          backgroundImage:
+                          foregroundImage:
                               p.avatarUrl != null && p.avatarUrl!.isNotEmpty
                               ? NetworkImage(p.avatarUrl!)
                               : null,
-                          child: p.avatarUrl == null || p.avatarUrl!.isEmpty
-                              ? Text(
-                                  initial,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                )
+                          onForegroundImageError:
+                              p.avatarUrl != null && p.avatarUrl!.isNotEmpty
+                              ? ignoreAvatarError
                               : null,
+                          child: Text(
+                            initial,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ),
                         const SizedBox(width: 10),
                         Column(

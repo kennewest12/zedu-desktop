@@ -30,10 +30,28 @@ class _ResetPasswordViewState extends ConsumerState<ResetPasswordView> {
   /// another email.
   bool _resending = false;
 
+  /// The digit each box held after its last change, so a paste into a filled
+  /// box can leave the old digit out.
+  final List<String> _boxDigits = List.filled(_codeLength, '');
+
   @override
   void initState() {
     super.initState();
     _startTimer();
+    // Selecting a box's digit when it gets focus makes a paste or a typed
+    // digit replace it instead of landing next to it.
+    for (var i = 0; i < _codeLength; i++) {
+      final node = _focusNodes[i];
+      final controller = _tokenControllers[i];
+      node.addListener(() {
+        if (node.hasFocus && controller.text.isNotEmpty) {
+          controller.selection = TextSelection(
+            baseOffset: 0,
+            extentOffset: controller.text.length,
+          );
+        }
+      });
+    }
   }
 
   void _startTimer() {
@@ -74,7 +92,7 @@ class _ResetPasswordViewState extends ConsumerState<ResetPasswordView> {
 
     final token = _tokenControllers.map((c) => c.text).join();
 
-    if (token.length != 6) {
+    if (token.length != _codeLength) {
       AppToastService.show(
         context,
         type: AppToastType.error,
@@ -128,6 +146,63 @@ class _ResetPasswordViewState extends ConsumerState<ResetPasswordView> {
     }
   }
 
+  static const _codeLength = 6;
+
+  /// Keeps one digit per box. A pasted code (three or more digits) fills the
+  /// boxes from [index] on, and focus moves to the box after the last digit.
+  void _onCodeChanged(int index, String value) {
+    final oldDigit = _boxDigits[index];
+    if (value.length <= 1) {
+      _boxDigits[index] = value;
+      if (value.isNotEmpty && index < _codeLength - 1) {
+        _focusNodes[index + 1].requestFocus();
+      } else if (value.isEmpty && index > 0) {
+        _focusNodes[index - 1].requestFocus();
+      }
+      return;
+    }
+
+    // Two characters means a digit was typed into a filled box: keep the new
+    // one (just before the cursor) and move on, as for a single digit.
+    if (value.length == 2 && oldDigit.isNotEmpty) {
+      final controller = _tokenControllers[index];
+      final cursor = controller.selection.baseOffset;
+      final typed = value[cursor >= 1 && cursor <= 2 ? cursor - 1 : 1];
+      controller.value = TextEditingValue(
+        text: typed,
+        selection: const TextSelection.collapsed(offset: 1),
+      );
+      _boxDigits[index] = typed;
+      if (index < _codeLength - 1) _focusNodes[index + 1].requestFocus();
+      return;
+    }
+
+    // A paste into a box that already held a digit lands next to it (before
+    // or after, by the cursor): leave that old digit out of the pasted code.
+    var pasted = value;
+    if (oldDigit.isNotEmpty) {
+      final cursor = _tokenControllers[index].selection.baseOffset;
+      if (cursor == value.length && value.startsWith(oldDigit)) {
+        pasted = value.substring(oldDigit.length);
+      } else if (value.endsWith(oldDigit)) {
+        pasted = value.substring(0, value.length - oldDigit.length);
+      }
+    }
+
+    final digits = pasted.split('');
+    var last = index;
+    for (var i = 0; i < digits.length && index + i < _codeLength; i++) {
+      last = index + i;
+      _tokenControllers[last].text = digits[i];
+      _boxDigits[last] = digits[i];
+    }
+    if (last < _codeLength - 1) {
+      _focusNodes[last + 1].requestFocus();
+    } else {
+      _focusNodes[last].requestFocus();
+    }
+  }
+
   Widget _buildOTPInput() {
     final theme = Theme.of(context);
     return Row(
@@ -143,7 +218,10 @@ class _ResetPasswordViewState extends ConsumerState<ResetPasswordView> {
             keyboardType: TextInputType.number,
             inputFormatters: [
               FilteringTextInputFormatter.digitsOnly,
-              LengthLimitingTextInputFormatter(1),
+              // More than one digit is a paste (or typing over a filled box);
+              // _onCodeChanged spreads it over the boxes. One extra character
+              // leaves room for a full code pasted next to a box's old digit.
+              LengthLimitingTextInputFormatter(_codeLength + 1),
             ],
             style: theme.textTheme.titleLarge?.copyWith(
               fontWeight: FontWeight.w600,
@@ -162,13 +240,7 @@ class _ResetPasswordViewState extends ConsumerState<ResetPasswordView> {
                 borderSide: BorderSide(color: context.colors.primary, width: 2),
               ),
             ),
-            onChanged: (value) {
-              if (value.isNotEmpty && index < 5) {
-                _focusNodes[index + 1].requestFocus();
-              } else if (value.isEmpty && index > 0) {
-                _focusNodes[index - 1].requestFocus();
-              }
-            },
+            onChanged: (value) => _onCodeChanged(index, value),
           ),
         );
       }),

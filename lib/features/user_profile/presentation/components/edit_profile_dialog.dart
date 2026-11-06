@@ -1,3 +1,5 @@
+import 'dart:io' show File;
+
 import 'package:zedu/core/core.dart';
 import 'package:zedu/features/features.dart';
 
@@ -60,24 +62,63 @@ String _canonicalCountryName(String value) {
 /// save succeeded.
 typedef EditProfileSave = Future<String?> Function(ProfileAccount account);
 
+/// Uploads the image at a file path as the profile photo; returns an error
+/// message, or null on success.
+typedef EditProfilePhotoUpload = Future<String?> Function(String filePath);
+
+/// Removes the profile photo; returns an error message, or null on success.
+typedef EditProfilePhotoRemove = Future<String?> Function();
+
+/// Lets the user choose an image; returns its path, or null when cancelled.
+typedef EditProfilePhotoPicker = Future<String?> Function();
+
+/// The photo types the API accepts, as on Zedu web.
+const kProfilePhotoExtensions = ['jpg', 'jpeg', 'png'];
+
+Future<String?> _pickProfilePhoto() async {
+  final result = await FilePicker.pickFiles(
+    type: FileType.custom,
+    allowedExtensions: kProfilePhotoExtensions,
+  );
+  return result?.files.single.path;
+}
+
 /// Opens the editor. It stays open while [onSave] runs and closes only when
 /// the save succeeds; on failure it keeps the draft and shows the error.
 Future<void> showEditProfileDialog(
   BuildContext context,
   ProfileAccount account,
-  EditProfileSave onSave,
-) async {
+  EditProfileSave onSave, {
+  EditProfilePhotoUpload? onUploadPhoto,
+  EditProfilePhotoRemove? onRemovePhoto,
+  EditProfilePhotoPicker pickPhoto = _pickProfilePhoto,
+}) async {
   await showDialog<void>(
     context: context,
-    builder: (context) => _EditProfileDialog(account: account, onSave: onSave),
+    builder: (context) => _EditProfileDialog(
+      account: account,
+      onSave: onSave,
+      onUploadPhoto: onUploadPhoto,
+      onRemovePhoto: onRemovePhoto,
+      pickPhoto: pickPhoto,
+    ),
   );
 }
 
 class _EditProfileDialog extends StatefulWidget {
-  const _EditProfileDialog({required this.account, required this.onSave});
+  const _EditProfileDialog({
+    required this.account,
+    required this.onSave,
+    required this.pickPhoto,
+    this.onUploadPhoto,
+    this.onRemovePhoto,
+  });
 
   final ProfileAccount account;
   final EditProfileSave onSave;
+  final EditProfilePhotoUpload? onUploadPhoto;
+  final EditProfilePhotoRemove? onRemovePhoto;
+  final EditProfilePhotoPicker pickPhoto;
 
   @override
   State<_EditProfileDialog> createState() => _EditProfileDialogState();
@@ -100,6 +141,86 @@ class _EditProfileDialogState extends State<_EditProfileDialog> {
   bool _saving = false;
   String? _saveError;
 
+  /// The saved photo's link, or null once it is removed.
+  String? _photoUrl;
+
+  /// A photo uploaded in this dialog, shown until the account reloads.
+  String? _uploadedPhotoPath;
+  bool _photoBusy = false;
+  String? _photoError;
+
+  bool get _hasPhoto =>
+      _uploadedPhotoPath != null || (_photoUrl?.isNotEmpty ?? false);
+
+  Future<void> _uploadPhoto() async {
+    final upload = widget.onUploadPhoto;
+    if (upload == null || _photoBusy) return;
+    final path = await widget.pickPhoto();
+    if (path == null || !mounted) return;
+    final ext = path.split('.').last.toLowerCase();
+    if (!kProfilePhotoExtensions.contains(ext)) {
+      setState(() => _photoError = 'Choose a JPG or PNG image.');
+      return;
+    }
+    setState(() {
+      _photoBusy = true;
+      _photoError = null;
+    });
+    final error = await upload(path);
+    if (!mounted) return;
+    setState(() {
+      _photoBusy = false;
+      if (error == null) {
+        _uploadedPhotoPath = path;
+      } else {
+        _photoError = error;
+      }
+    });
+  }
+
+  Future<void> _removePhoto() async {
+    final remove = widget.onRemovePhoto;
+    if (remove == null || _photoBusy) return;
+    setState(() {
+      _photoBusy = true;
+      _photoError = null;
+    });
+    final error = await remove();
+    if (!mounted) return;
+    setState(() {
+      _photoBusy = false;
+      if (error == null) {
+        _uploadedPhotoPath = null;
+        _photoUrl = null;
+      } else {
+        _photoError = error;
+      }
+    });
+  }
+
+  Widget _photoPlaceholder(AppPalette colors) =>
+      Icon(Icons.person, size: 80, color: colors.accent);
+
+  Widget _photoPreview(AppPalette colors) {
+    final uploaded = _uploadedPhotoPath;
+    if (uploaded != null) {
+      return Image.file(
+        File(uploaded),
+        fit: BoxFit.cover,
+        errorBuilder: (_, _, _) => _photoPlaceholder(colors),
+      );
+    }
+    final url = _photoUrl;
+    if (url != null && url.isNotEmpty) {
+      return Image.network(
+        url,
+        fit: BoxFit.cover,
+        errorBuilder: (_, _, _) => _photoPlaceholder(colors),
+      );
+    }
+    return _photoPlaceholder(colors);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -115,6 +236,7 @@ class _EditProfileDialogState extends State<_EditProfileDialog> {
 
     selectedTimezone = normalizeProfileTimezone(widget.account.timezone);
     selectedCountry = widget.account.country;
+    _photoUrl = widget.account.avatarUrl;
   }
 
   @override
@@ -413,36 +535,57 @@ class _EditProfileDialogState extends State<_EditProfileDialog> {
                                           onFieldSubmitted(),
                                     );
                                   },
-                              optionsViewBuilder:
-                                  (context, onSelected, options) {
-                                    return Align(
-                                      alignment: Alignment.topLeft,
-                                      child: Material(
-                                        elevation: 4,
+                              optionsViewBuilder: (context, onSelected, options) {
+                                return Align(
+                                  alignment: Alignment.topLeft,
+                                  child: Material(
+                                    elevation: 4,
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: Container(
+                                      width: 360,
+                                      constraints: const BoxConstraints(
+                                        maxHeight: 240,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: colors.background,
                                         borderRadius: BorderRadius.circular(8),
-                                        child: Container(
-                                          width: 360,
-                                          constraints: const BoxConstraints(
-                                            maxHeight: 240,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: colors.background,
-                                            borderRadius: BorderRadius.circular(
-                                              8,
-                                            ),
-                                            border: Border.all(
-                                              color: colors.divider,
-                                            ),
-                                          ),
-                                          child: ListView.builder(
-                                            padding: EdgeInsets.zero,
-                                            shrinkWrap: true,
-                                            itemCount: options.length,
-                                            itemBuilder: (context, index) {
-                                              final option = options.elementAt(
-                                                index,
-                                              );
-                                              return InkWell(
+                                        border: Border.all(
+                                          color: colors.divider,
+                                        ),
+                                      ),
+                                      child: ListView.builder(
+                                        padding: EdgeInsets.zero,
+                                        shrinkWrap: true,
+                                        itemCount: options.length,
+                                        itemBuilder: (context, index) {
+                                          final option = options.elementAt(
+                                            index,
+                                          );
+                                          // The row the arrow keys moved
+                                          // to, which Enter picks.
+                                          final highlighted =
+                                              AutocompleteHighlightedOption.of(
+                                                context,
+                                              ) ==
+                                              index;
+                                          if (highlighted) {
+                                            WidgetsBinding.instance
+                                                .addPostFrameCallback((_) {
+                                                  if (context.mounted) {
+                                                    Scrollable.ensureVisible(
+                                                      context,
+                                                      alignment: 0.5,
+                                                    );
+                                                  }
+                                                });
+                                          }
+                                          return Semantics(
+                                            selected: highlighted,
+                                            child: Material(
+                                              color: highlighted
+                                                  ? colors.primaryBg
+                                                  : Colors.transparent,
+                                              child: InkWell(
                                                 onTap: () => onSelected(option),
                                                 child: Padding(
                                                   padding:
@@ -457,13 +600,15 @@ class _EditProfileDialogState extends State<_EditProfileDialog> {
                                                         .bodySmall,
                                                   ),
                                                 ),
-                                              );
-                                            },
-                                          ),
-                                        ),
+                                              ),
+                                            ),
+                                          );
+                                        },
                                       ),
-                                    );
-                                  },
+                                    ),
+                                  ),
+                                );
+                              },
                             ),
                             const SizedBox(height: 16),
                           ],
@@ -489,51 +634,67 @@ class _EditProfileDialogState extends State<_EditProfileDialog> {
                               child: Container(
                                 width: 160,
                                 height: 160,
+                                clipBehavior: Clip.antiAlias,
                                 decoration: BoxDecoration(
                                   color: colors.accent.withValues(alpha: 0.15),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
-                                child: Icon(
-                                  Icons.person,
-                                  size: 80,
-                                  color: colors.accent,
-                                ),
+                                child: _photoBusy
+                                    ? const Center(
+                                        child: CircularProgressIndicator(),
+                                      )
+                                    : _photoPreview(colors),
                               ),
                             ),
                             const SizedBox(height: 12),
-                            Center(
-                              child: TextButton.icon(
-                                onPressed: () {
-                                  // Upload photo placeholder
-                                },
-                                icon: Icon(
-                                  Icons.upload_outlined,
-                                  size: 16,
-                                  color: colors.primary,
-                                ),
-                                label: Text(
-                                  'Upload photo',
-                                  style: context.textTheme.bodySmall?.copyWith(
+                            if (widget.onUploadPhoto != null)
+                              Center(
+                                child: TextButton.icon(
+                                  onPressed: _photoBusy ? null : _uploadPhoto,
+                                  icon: Icon(
+                                    Icons.upload_outlined,
+                                    size: 16,
                                     color: colors.primary,
-                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  label: Text(
+                                    'Upload photo',
+                                    style: context.textTheme.bodySmall
+                                        ?.copyWith(
+                                          color: colors.primary,
+                                          fontWeight: FontWeight.w500,
+                                        ),
                                   ),
                                 ),
                               ),
-                            ),
-                            Center(
-                              child: TextButton(
-                                onPressed: () {
-                                  // Remove photo placeholder
-                                },
+                            if (widget.onRemovePhoto != null)
+                              Center(
+                                child: TextButton(
+                                  onPressed: _photoBusy || !_hasPhoto
+                                      ? null
+                                      : _removePhoto,
+                                  child: Text(
+                                    'Remove photo',
+                                    style: context.textTheme.bodySmall
+                                        ?.copyWith(
+                                          color: _hasPhoto
+                                              ? colors.error
+                                              : colors.textHint,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                  ),
+                                ),
+                              ),
+                            if (_photoError != null)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 4),
                                 child: Text(
-                                  'Remove photo',
+                                  _photoError!,
+                                  textAlign: TextAlign.center,
                                   style: context.textTheme.bodySmall?.copyWith(
                                     color: colors.error,
-                                    fontWeight: FontWeight.w500,
                                   ),
                                 ),
                               ),
-                            ),
                           ],
                         ),
                       ),

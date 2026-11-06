@@ -25,17 +25,18 @@ class OwnSpaceIntro extends StatelessWidget {
           CircleAvatar(
             radius: 39,
             backgroundColor: colors.primary,
-            backgroundImage: avatarUrl != null ? NetworkImage(avatarUrl) : null,
-            child: avatarUrl == null
-                ? Text(
-                    avatarInitial(name),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 28,
-                    ),
-                  )
+            foregroundImage: avatarUrl != null ? NetworkImage(avatarUrl) : null,
+            onForegroundImageError: avatarUrl != null
+                ? ignoreAvatarError
                 : null,
+            child: Text(
+              avatarInitial(name),
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 28,
+              ),
+            ),
           ),
           const SizedBox(height: 12),
           RichText(

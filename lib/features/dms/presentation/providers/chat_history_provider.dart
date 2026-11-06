@@ -35,6 +35,17 @@ class ChatHistoryNotifier extends ChangeNotifier {
     _loadInitial();
   }
 
+  /// Set when the provider is disposed (it is autoDispose, so leaving the
+  /// conversation disposes it). Work still awaiting the repository checks it
+  /// before touching [ref] or the state again.
+  bool _disposed = false;
+
+  @override
+  void notifyListeners() {
+    if (_disposed) return;
+    super.notifyListeners();
+  }
+
   String get _currentUserId {
     final authState = ref.read(authNotifierProvider);
     return authState.user?.id ?? '';
@@ -78,6 +89,7 @@ class ChatHistoryNotifier extends ChangeNotifier {
 
   Future<void> _loadInitial() async {
     await _loadFirstPage();
+    if (_disposed) return;
     // Start polling for new messages now that the initial load is done.
     _startPolling();
   }
@@ -88,9 +100,11 @@ class ChatHistoryNotifier extends ChangeNotifier {
           .read(dmHistoryClearStoreProvider)
           .clearedAt(channelId);
     } catch (_) {}
+    if (_disposed) return;
     try {
       final repository = ref.read(dmRepositoryProvider);
       final loaded = await repository.getMessages(channelId, page: 1);
+      if (_disposed) return;
       final visible = loaded.where((m) => !_isCleared(m)).toList();
       // Keep messages sent (or failing to send) while the history was missing.
       final unsent = messages.where((m) => m['status'] != null);
@@ -159,6 +173,8 @@ class ChatHistoryNotifier extends ChangeNotifier {
     try {
       final repository = ref.read(dmRepositoryProvider);
       final fresh = await repository.getMessages(channelId, page: 1);
+      // Reading the user and the notification service needs a live ref.
+      if (_disposed) return;
 
       // A message edited elsewhere keeps its id, so it is not "new": replace
       // its text in place, without a notification or a second copy.
@@ -295,6 +311,7 @@ class ChatHistoryNotifier extends ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
     (_pollingTimer as dynamic)?.cancel();
     // Recordings kept for messages that never sent are no longer needed.
     for (final options in _sendOptions.values) {
@@ -318,6 +335,7 @@ class ChatHistoryNotifier extends ChangeNotifier {
         channelId,
         page: nextPage,
       );
+      if (_disposed) return;
 
       // A message that arrived since the list was loaded pushes everything
       // down, so the next page can start with a message already shown. Only
@@ -359,11 +377,11 @@ class ChatHistoryNotifier extends ChangeNotifier {
   /// (such as its files). Waits for a load already in flight, and stops after
   /// [maxPages] pages or when a page fails, so it can't loop forever.
   Future<void> loadAll({int maxPages = 50}) async {
-    for (var i = 0; i < maxPages && hasMore; i++) {
-      while (isLoading) {
+    for (var i = 0; i < maxPages && hasMore && !_disposed; i++) {
+      while (isLoading && !_disposed) {
         await Future<void>.delayed(const Duration(milliseconds: 50));
       }
-      if (!hasMore) break;
+      if (_disposed || !hasMore) break;
       final before = page;
       await loadMore();
       if (page == before) break; // the page failed to load
@@ -438,6 +456,7 @@ class ChatHistoryNotifier extends ChangeNotifier {
       );
       _sendOptions.remove(tempId);
       _deleteRecordings(media);
+      if (_disposed) return;
 
       messages = messages.map((m) {
         if (m['id'] == tempId) {
@@ -449,6 +468,7 @@ class ChatHistoryNotifier extends ChangeNotifier {
         return m;
       }).toList();
     } catch (_) {
+      if (_disposed) return;
       messages = messages.map((m) {
         if (m['id'] == tempId) {
           final newMsg = Map<String, dynamic>.from(m);
@@ -487,6 +507,7 @@ class ChatHistoryNotifier extends ChangeNotifier {
       );
       _sendOptions.remove(messageId);
       _deleteRecordings(options?.media);
+      if (_disposed) return;
 
       messages = messages.map((m) {
         if (m['id'] == messageId) {
@@ -498,6 +519,7 @@ class ChatHistoryNotifier extends ChangeNotifier {
         return m;
       }).toList();
     } catch (_) {
+      if (_disposed) return;
       messages = messages.map((m) {
         if (m['id'] == messageId) {
           final newMsg = Map<String, dynamic>.from(m);
@@ -588,6 +610,7 @@ class ChatHistoryNotifier extends ChangeNotifier {
       final repository = ref.read(dmRepositoryProvider);
       await repository.deleteMessage(threadId: threadId, channelId: channelId);
     } catch (_) {
+      if (_disposed) return;
       _deletedIds.remove(messageId);
       messages = [...messages]
         ..insert(index.clamp(0, messages.length), removed);
@@ -641,6 +664,7 @@ class ChatHistoryNotifier extends ChangeNotifier {
       );
       return true;
     } catch (_) {
+      if (_disposed) return false;
       messages = messages.map((m) {
         if (m['id'] == messageId && m['content'] == newContent) {
           final reverted = Map<String, dynamic>.from(m);

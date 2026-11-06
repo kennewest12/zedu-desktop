@@ -13,6 +13,10 @@ class DmPreferencesStore {
 
   static const _tag = 'DmPreferencesStore';
 
+  /// The last write started for each key. A new write for the key waits for
+  /// it, so quick toggles land in order and the newest set is saved last.
+  static final Map<String, Future<void>> _writes = {};
+
   static String pinnedKey(String userId) => 'dm_pinned_channels_$userId';
   static String mutedKey(String userId) => 'dm_muted_participants_$userId';
 
@@ -29,7 +33,16 @@ class DmPreferencesStore {
     }
   }
 
-  Future<void> write(String key, Set<String> ids) async {
+  Future<void> write(String key, Set<String> ids) {
+    final previous = _writes[key] ?? Future<void>.value();
+    final next = previous.then((_) => _write(key, Set.of(ids)));
+    _writes[key] = next;
+    return next.whenComplete(() {
+      if (identical(_writes[key], next)) _writes.remove(key);
+    });
+  }
+
+  Future<void> _write(String key, Set<String> ids) async {
     if (!locator.isRegistered<SecureStorageService>()) return;
     try {
       await locator<SecureStorageService>().writeData(

@@ -3,6 +3,7 @@ import 'package:zedu/features/features.dart';
 enum UserProfileSection {
   account,
   notifications,
+  shortcuts,
   security,
   organization,
   userManagement,

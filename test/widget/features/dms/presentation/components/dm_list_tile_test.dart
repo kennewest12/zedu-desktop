@@ -46,6 +46,7 @@ DmConversation buildConversation({
   String username = 'Ada Okafor',
   String previewMessage = 'See you at standup',
   int unreadCount = 0,
+  String? avatarUrl,
 }) {
   return DmConversation(
     channelId: channelId,
@@ -53,6 +54,7 @@ DmConversation buildConversation({
     participantId: 'user-$channelId',
     previewMessage: previewMessage,
     unreadCount: unreadCount,
+    avatarUrl: avatarUrl,
   );
 }
 
@@ -111,6 +113,24 @@ void main() {
     );
     expect((badge.decoration! as BoxDecoration).color, _palette.accent);
   });
+
+  testWidgets(
+    "a photo that fails to load shows the person's initial (Ziki #2772)",
+    (tester) async {
+      // Test HTTP answers every image request with an error, like a 404 or an
+      // expired avatar link.
+      await tester.pumpWidget(
+        buildTileUnderTest(
+          buildConversation(avatarUrl: 'https://cdn.example.com/expired.png'),
+        ),
+      );
+      await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+      await tester.pump();
+
+      expect(find.text('A'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('tapping a row selects and highlights it', (tester) async {
     final conversation = buildConversation();

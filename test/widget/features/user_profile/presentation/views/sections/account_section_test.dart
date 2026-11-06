@@ -1,3 +1,4 @@
+import 'package:zedu/core/core.dart';
 import 'package:zedu/features/features.dart';
 
 import '../../../../../../helpers/helpers.dart';
@@ -9,14 +10,16 @@ Future<void> _pump(WidgetTester tester, ProfileAccount account) async {
   addTearDown(tester.view.resetDevicePixelRatio);
 
   await tester.pumpWidget(
-    buildTestMaterialApp(
-      Scaffold(
-        body: SingleChildScrollView(
-          child: AccountSection(
-            account: account,
-            isSaving: false,
-            onSave: (_) {},
-            onDelete: () async {},
+    ProviderScope(
+      child: buildTestMaterialApp(
+        Scaffold(
+          body: SingleChildScrollView(
+            child: AccountSection(
+              account: account,
+              isSaving: false,
+              onSave: (_) {},
+              onDelete: () async {},
+            ),
           ),
         ),
       ),
@@ -101,5 +104,20 @@ void main() {
     await _pump(tester, account.copyWith(username: '   '));
 
     expect(find.text('@adalovelace'), findsOneWidget);
+  });
+
+  testWidgets('the Reduce motion switch turns it on', (tester) async {
+    await _pump(tester, account);
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(AccountSection)),
+    );
+    expect(container.read(reduceMotionProvider), isFalse);
+
+    await tester.ensureVisible(find.text('Reduce motion'));
+    await tester.tap(find.byType(Switch));
+    await tester.pump();
+
+    expect(container.read(reduceMotionProvider), isTrue);
+    expect(tester.widget<Switch>(find.byType(Switch)).value, isTrue);
   });
 }

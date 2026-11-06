@@ -139,15 +139,16 @@ class _UnreadDmRow extends StatelessWidget {
             CircleAvatar(
               radius: 16,
               backgroundColor: colors.primaryBg,
-              backgroundImage: avatarUrl != null
+              foregroundImage: avatarUrl != null
                   ? NetworkImage(avatarUrl)
                   : null,
-              child: avatarUrl == null
-                  ? Text(
-                      initial,
-                      style: TextStyle(fontSize: 13, color: colors.primary),
-                    )
+              onForegroundImageError: avatarUrl != null
+                  ? ignoreAvatarError
                   : null,
+              child: Text(
+                initial,
+                style: TextStyle(fontSize: 13, color: colors.primary),
+              ),
             ),
             const SizedBox(width: 10),
             Expanded(

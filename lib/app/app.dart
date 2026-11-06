@@ -6,17 +6,27 @@ class App extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final reduceMotion = ref.watch(reduceMotionProvider);
+
     return MaterialApp.router(
       debugShowCheckedModeBanner: false,
       title: kIsWeb ? 'Zedu | Team Messaging & Collaboration' : 'Zedu',
-      theme: AppTheme.light,
+      theme: reduceMotion
+          ? AppTheme.light.copyWith(pageTransitionsTheme: noPageTransitions)
+          : AppTheme.light,
       routerConfig: AppRouter.router,
-      builder: (context, child) => DesktopWindowTitleListener(
-        child: CreditsPaymentDeepLinkListener(
-          child: AuthDeepLinkListener(
-            child: SessionExpiryListener(
-              child: QuickSwitcherShortcut(
-                child: child ?? const SizedBox.shrink(),
+      builder: (context, child) => ReduceMotionScope(
+        reduceMotion: reduceMotion,
+        child: DesktopWindowTitleListener(
+          child: CreditsPaymentDeepLinkListener(
+            child: AuthDeepLinkListener(
+              child: SessionExpiryListener(
+                child: QuickSwitcherShortcut(
+                  child: isDesktopApp
+                      // Close-to-tray, the tray menu and desktop notifications.
+                      ? DesktopManager(child: child ?? const SizedBox.shrink())
+                      : child ?? const SizedBox.shrink(),
+                ),
               ),
             ),
           ),

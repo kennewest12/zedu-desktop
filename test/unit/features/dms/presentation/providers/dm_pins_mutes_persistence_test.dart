@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:zedu/core/core.dart';
@@ -135,5 +137,59 @@ void main() {
       other.read(notificationSettingsProvider).isMuted('person-1'),
       isFalse,
     );
+  });
+  group('quick changes save the newest choice (Ziki #2741)', () {
+    // The first save to disk is slow and would finish after the second.
+    late Completer<void> slowFirstWrite;
+
+    setUp(() {
+      slowFirstWrite = Completer<void>();
+      var writes = 0;
+      when(
+        () => locator<SecureStorageService>().writeData(any(), any()),
+      ).thenAnswer((i) async {
+        final key = i.positionalArguments[0] as String;
+        final value = i.positionalArguments[1] as String;
+        if (writes++ == 0) await slowFirstWrite.future;
+        disk[key] = value;
+      });
+    });
+
+    test('pin then unpin quickly: unpinned after a restart', () async {
+      final first = launch('u1');
+      final actions = first.read(dmConversationActionsProvider.notifier);
+      actions.togglePinned('channel-a');
+      actions.togglePinned('channel-a');
+      await settle();
+      slowFirstWrite.complete();
+      await settle();
+      first.dispose();
+
+      final second = launch('u1');
+      second.read(dmConversationActionsProvider);
+      await settle();
+
+      expect(second.read(dmConversationActionsProvider).pinnedIds, isEmpty);
+    });
+
+    test('mute then unmute quickly: not muted after a restart', () async {
+      final first = launch('u1');
+      final settings = first.read(notificationSettingsProvider.notifier);
+      settings.muteParticipant('person-1');
+      settings.unmuteParticipant('person-1');
+      await settle();
+      slowFirstWrite.complete();
+      await settle();
+      first.dispose();
+
+      final second = launch('u1');
+      second.read(notificationSettingsProvider);
+      await settle();
+
+      expect(
+        second.read(notificationSettingsProvider).isMuted('person-1'),
+        isFalse,
+      );
+    });
   });
 }

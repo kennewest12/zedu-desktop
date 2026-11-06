@@ -45,22 +45,23 @@ class IncomingCallModal extends ConsumerWidget {
                   CircleAvatar(
                     radius: 20,
                     backgroundColor: colors.primary,
-                    backgroundImage:
+                    foregroundImage:
                         activeCall.state.remoteAvatarUrl != null &&
                             activeCall.state.remoteAvatarUrl!.isNotEmpty
                         ? NetworkImage(activeCall.state.remoteAvatarUrl!)
                         : null,
-                    child:
-                        activeCall.state.remoteAvatarUrl == null ||
-                            activeCall.state.remoteAvatarUrl!.isEmpty
-                        ? Text(
-                            avatarInitial(activeCall.state.remoteUserName),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          )
+                    onForegroundImageError:
+                        activeCall.state.remoteAvatarUrl != null &&
+                            activeCall.state.remoteAvatarUrl!.isNotEmpty
+                        ? ignoreAvatarError
                         : null,
+                    child: Text(
+                      avatarInitial(activeCall.state.remoteUserName),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(

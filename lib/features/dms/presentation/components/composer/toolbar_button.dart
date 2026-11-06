@@ -24,7 +24,9 @@ class ToolbarButton extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(5),
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
+          duration: (MediaQuery.maybeDisableAnimationsOf(context) ?? false)
+              ? Duration.zero
+              : const Duration(milliseconds: 150),
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
           decoration: BoxDecoration(
             color: isActive

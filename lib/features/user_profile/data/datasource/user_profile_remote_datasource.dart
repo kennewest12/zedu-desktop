@@ -6,6 +6,12 @@ import 'package:zedu/features/features.dart';
 abstract interface class UserProfileRemoteDataSource {
   Future<ProfileAccountModel> getAccount();
   Future<ProfileAccountModel> updateAccount(ProfileAccount account);
+
+  /// Uploads the image at [filePath] as the profile photo.
+  Future<void> uploadAvatar(String filePath);
+
+  /// Removes the profile photo.
+  Future<void> removeAvatar();
   Future<void> deleteAccount();
   Future<NotificationPreferencesModel> getNotificationPreferences({
     required String? orgId,
@@ -87,6 +93,34 @@ class UserProfileRemoteDataSourceImpl implements UserProfileRemoteDataSource {
       data: FormData.fromMap(fields),
     );
     return ProfileAccountModel.fromAccount(account);
+  }
+
+  @override
+  Future<void> uploadAvatar(String filePath) async {
+    if (_config.usesMockData) {
+      AppLogger.d('Using mock data for avatar upload', tag: _tag);
+      return;
+    }
+    // Same request as Zedu web: the photo rides on PATCH /profile as
+    // `avatar_file`; the API checks the image itself.
+    final name = filePath.split(RegExp(r'[\/]')).last;
+    final isPng = name.toLowerCase().endsWith('.png');
+    await _apiBaseService.patch<Map<String, dynamic>>(
+      path: '/profile',
+      data: FormData.fromMap({
+        'avatar_file': await MultipartFile.fromFile(
+          filePath,
+          filename: name,
+          contentType: DioMediaType('image', isPng ? 'png' : 'jpeg'),
+        ),
+      }),
+    );
+  }
+
+  @override
+  Future<void> removeAvatar() async {
+    if (_config.usesMockData) return;
+    await _apiBaseService.delete<Map<String, dynamic>>(path: '/profile/image');
   }
 
   @override

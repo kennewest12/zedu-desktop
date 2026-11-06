@@ -88,6 +88,8 @@ class AccountSection extends StatelessWidget {
             ),
           ],
         ),
+        const SizedBox(height: 24),
+        const _AccessibilityCard(),
         const SizedBox(height: 48),
         AppButton.outlined(
           label: 'Delete my account',
@@ -160,6 +162,62 @@ class _AvatarBlock extends StatelessWidget {
               // A broken link still shows who this account is.
               errorBuilder: (_, _, _) => fallback,
             ),
+    );
+  }
+}
+
+/// Settings that change how the app looks on this computer.
+class _AccessibilityCard extends ConsumerWidget {
+  const _AccessibilityCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final reduceMotion = ref.watch(reduceMotionProvider);
+    final colors = context.colors;
+
+    return ProfileCard(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const ProfileFieldLabel('Accessibility'),
+          const SizedBox(height: 8),
+          MergeSemantics(
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Reduce motion',
+                        style: context.textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Turn off non-essential animations and transitions '
+                        'on this computer.',
+                        style: context.textTheme.bodySmall?.copyWith(
+                          color: colors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Switch(
+                  value: reduceMotion,
+                  activeThumbColor: colors.onPrimary,
+                  activeTrackColor: colors.primary,
+                  onChanged: ref.read(reduceMotionProvider.notifier).set,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
