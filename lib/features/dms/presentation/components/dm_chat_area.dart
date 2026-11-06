@@ -724,14 +724,13 @@ class _PinnedMessagesDialog extends StatelessWidget {
               )
             : ListView.separated(
                 itemCount: pinned.length,
-                separatorBuilder: (context, index) => Divider(
-                  height: 1,
-                  color: colors.divider,
-                ),
+                separatorBuilder: (context, index) =>
+                    Divider(height: 1, color: colors.divider),
                 itemBuilder: (context, index) {
                   final message = pinned[index];
                   final text = _plainText(message['content']);
-                  final sender = message['sender_name']?.toString() ??
+                  final sender =
+                      message['sender_name']?.toString() ??
                       message['sender']?.toString() ??
                       displayName;
                   final createdAtStr = message['created_at']?.toString();

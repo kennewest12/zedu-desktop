@@ -43,6 +43,7 @@ void main() {
     when(() => history.loadFailed).thenReturn(false);
     when(() => history.loadMoreFailed).thenReturn(false);
     when(() => history.historyCleared).thenReturn(false);
+    when(() => history.isMyMessage(any())).thenReturn(false);
     final drafts = MockDraftStore();
     when(() => drafts.load(any())).thenAnswer((_) async => null);
 
@@ -112,6 +113,7 @@ void main() {
     when(() => history.loadFailed).thenReturn(false);
     when(() => history.loadMoreFailed).thenReturn(false);
     when(() => history.historyCleared).thenReturn(false);
+    when(() => history.isMyMessage(any())).thenReturn(false);
     final drafts = MockDraftStore();
     when(() => drafts.load(any())).thenAnswer((_) async => null);
 
@@ -184,6 +186,7 @@ void main() {
     when(() => history.loadFailed).thenReturn(false);
     when(() => history.loadMoreFailed).thenReturn(false);
     when(() => history.historyCleared).thenReturn(false);
+    when(() => history.isMyMessage(any())).thenReturn(false);
     final drafts = MockDraftStore();
     when(() => drafts.load(any())).thenAnswer((_) async => null);
 
@@ -227,4 +230,3 @@ void main() {
     expect(find.byType(AlertDialog), findsNothing);
   });
 }
-
